@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include <stdio.h>
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -68,17 +69,94 @@ static void MX_TIM3_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
+
+uint8_t RH_byte1,RH_byte2,Temp_byte1,Temp_byte2;
+uint16_t SUM,RH,Te;
+float Temperature=0;
+float Humidity=0;
+uint8_t Presence=0;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint32_t adcval;
+
+#define DHT_PORT GPIOC
+#define DHT_PIN GPIO_PIN_9
+
 
 int _write ( int file , char *ptr , int len ) {
 
 	HAL_UART_Transmit(&huart2 , (uint8_t*)ptr , len , 50) ;
 	return len;
 }
+
+void delay_us (uint16_t us)
+{
+	__HAL_TIM_SET_COUNTER(&htim3,0);  // set the counter value a 0
+	while (__HAL_TIM_GET_COUNTER(&htim3) < us);  // wait for the counter to reach the us input in the parameter
+}
+
+
+void Set_Pin_Output (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
+{
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
+	GPIO_InitStruct.Pin = GPIO_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
+}
+
+void Set_Pin_Input (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
+{
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
+	GPIO_InitStruct.Pin = GPIO_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
+}
+
+
+void DHT11_Start (void)
+{
+	Set_Pin_Output (DHT_PORT, DHT_PIN);  // set the pin as output
+	HAL_GPIO_WritePin (DHT_PORT, DHT_PIN, 0);   // pull the pin low
+	 delay_us(18000);  // wait for 18ms
+	Set_Pin_Input(DHT_PORT, DHT_PIN);    // set as input
+}
+
+uint8_t Check_Response (void)
+{
+	uint8_t Response = 0;
+	 delay_us(40);
+	if (!(HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)))
+	{
+		 delay_us(80);
+		if ((HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN))) Response = 1;
+		else Response = -1;
+	}
+	while ((HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));   // wait for the pin to go low
+
+	return Response;
+}
+
+uint8_t DHT11_Read (void)
+{
+	uint8_t i,j;
+	for (j=0;j<8;j++)
+	{
+		while (!(HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));   // wait for the pin to go high
+		 delay_us(40);   // wait for 40 us
+		if (!(HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)))   // if the pin is low
+		{
+			i&= ~(1<<(7-j));   // write 0
+		}
+		else i|= (1<<(7-j));  // if the pin is high, write 1
+		while ((HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));  // wait for the pin to go low
+	}
+	return i;
+}
+
+
 /* USER CODE END 0 */
 
 /**
@@ -121,7 +199,7 @@ int main(void)
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
   HAL_ADC_Start(&hadc1);
 
-
+  HAL_TIM_Base_Start(&htim3);
 
 
   /* USER CODE END 2 */
@@ -133,12 +211,26 @@ int main(void)
 
 	  uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
 	  float temp = adc_value * 330.0f / 4096.0f;
-	  printf("ADC = %lu, T = %.1f C,\r\n", adc_value, temp);
 
-	  HAL_Delay(250);
 
+
+
+	  DHT11_Start();
+	  Presence=Check_Response();
+	  RH_byte1=DHT11_Read();
+	  RH_byte2=DHT11_Read();
+	  Temp_byte1=DHT11_Read();
+	  Temp_byte2=DHT11_Read();
+	  SUM=DHT11_Read();
+
+	  Te=Temp_byte1;
+	  RH=RH_byte1;
+	  Temperature= (float) Te;
+	  Humidity=(float) RH;
+
+			  printf("ADC = %lu, T = %.1f C, RH = %.2f\r\n", adc_value, temp,Humidity);
     /* USER CODE END WHILE */
-
+HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
