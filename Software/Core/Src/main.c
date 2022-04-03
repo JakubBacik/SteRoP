@@ -207,6 +207,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+		  	if(htim->Instance == TIM2){ // Jeżeli przerwanie pochodzi od timera 1
 
 	  uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
 	  float temp = adc_value * 330.0f / 4096.0f;
@@ -227,8 +229,7 @@ int main(void)
 	  Temperature= (float) Te;
 	  Humidity=(float) RH;
 
-	  void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	  	if(htim->Instance == TIM2){ // Jeżeli przerwanie pochodzi od timera 1
+
 	  		printf("ADC = %lu, T = %.1f C, RH = %.2f\r\n", adc_value, temp,Humidity);
 	  	}
 	  }
