@@ -74,6 +74,7 @@ uint16_t SUM,RH,Te;
 float Temperature=0;
 float Humidity=0;
 uint8_t Presence=0;
+volatile int FlagInterruption = 0;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -82,20 +83,28 @@ uint8_t Presence=0;
 #define DHT_PORT GPIOC
 #define DHT_PIN GPIO_PIN_9
 
-
+/*Funkcja printf wywołuje funckje _write która jest funkcją
+ *z atrybutem weak w bibliotece stdio.h, co powoduje że można
+ *ją zastąpić własną implementacją, która służy do komunikacji
+ *za pomocą UART.*/
 int _write ( int file , char *ptr , int len ) {
 
 	HAL_UART_Transmit(&huart2 , (uint8_t*)ptr , len , 50) ;
 	return len;
 }
 
+/*Funkcja odpowiedzialna za generowanie opóżnień które
+ * służa w komunikacji z czujnikiem DHT11. Ustawia timer
+ * na wartosć 0 po czym sprawdza czy wartość timera
+ * jest większa niż oczekiwane opóżnienie*/
 void delay_us (uint16_t us)
 {
 	__HAL_TIM_SET_COUNTER(&htim3,0);  // set the counter value a 0
 	while (__HAL_TIM_GET_COUNTER(&htim3) < us);  // wait for the counter to reach the us input in the parameter
 }
 
-
+/* Funkcja odpowiedzialna za ustawienie danego pinu
+* jako wyjście. */
 void Set_Pin_Output (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 {
 	GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -105,6 +114,8 @@ void Set_Pin_Output (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 	HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
 }
 
+/*
+ * Funkcja odpowiedzialna za ustawienie pinu jako wejście*/
 void Set_Pin_Input (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 {
 	GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -114,7 +125,12 @@ void Set_Pin_Input (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 	HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
 }
 
-
+/* Inicjalizacja poąłczenia polegająca na usatwieniu
+ * pinu odpowiedzialnego za komunikacje z czujnikiem
+ * DHT11 jako wyjście i ustawienie stanu niskiego
+ * który będzie trwał 18 ms, następnie pin
+ * konfigurowany jest jako wejście, aby odczytać
+ * odpowiedź czujnika.*/
 void DHT11_Start (void)
 {
 	Set_Pin_Output (DHT_PORT, DHT_PIN);  // set the pin as output
@@ -123,6 +139,13 @@ void DHT11_Start (void)
 	Set_Pin_Input(DHT_PORT, DHT_PIN);    // set as input
 }
 
+/* Funkcja odpowiedzialna za sprawdzenie odpowiedzi
+ * czujnika DHT 11, po 40 s następuje sprawdzenie
+ * stanu pinu czy jest w stanie niskim, następnie
+ * po 80 ms sprawdza się czy stan jest wysoki.
+ * Oczekiwanie na stan niski co powoduje
+ * początek wysłania danych.
+ * */
 uint8_t Check_Response (void)
 {
 	uint8_t Response = 0;
@@ -138,13 +161,19 @@ uint8_t Check_Response (void)
 	return Response;
 }
 
+/* Funkcja odpowiedzialna za odczytanie 8 bitów z wejścia
+ * na początku sprawdzane czy pin jest w stanie wysokim.
+ * Jeśli czas trwania stanu wysokiego wynosi 26-28 us
+ * oznacza logiczne zero, natomiast jeżeli 40 s oznacza
+ * logiczną jednykę.
+ * */
 uint8_t DHT11_Read (void)
 {
 	uint8_t i,j;
 	for (j=0;j<8;j++)
 	{
 		while (!(HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));   // wait for the pin to go high
-		 delay_us(40);   // wait for 40 us
+		delay_us(40);   // wait for 40 us
 		if (!(HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)))   // if the pin is low
 		{
 			i&= ~(1<<(7-j));   // write 0
@@ -153,6 +182,14 @@ uint8_t DHT11_Read (void)
 		while ((HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));  // wait for the pin to go low
 	}
 	return i;
+}
+
+/*Wywolanie przerwania, spawdzane jest czy przerwanie wywołał
+ * timer2.*/
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	if(htim->Instance == TIM2){
+		FlagInterruption = 1;
+	}
 }
 
 
@@ -198,7 +235,8 @@ int main(void)
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
   HAL_ADC_Start(&hadc1);
 
-  HAL_TIM_Base_Start_IT(&htim3);
+  HAL_TIM_Base_Start(&htim3);
+  HAL_TIM_Base_Start_IT(&htim2);
 
 
   /* USER CODE END 2 */
@@ -207,32 +245,27 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-		  	if(htim->Instance == TIM2){ // Jeżeli przerwanie pochodzi od timera 2
+	  if(FlagInterruption == 1){
 
-	  uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
-	  float temp = adc_value * 330.0f / 4096.0f;
+	  	uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
+	  	float temp = adc_value * 330.0f / 4096.0f;
 
+	  	DHT11_Start();
+	  	Presence=Check_Response();
+	  	RH_byte1=DHT11_Read();
+	  	RH_byte2=DHT11_Read();
+	  	Temp_byte1=DHT11_Read();
+	  	Temp_byte2=DHT11_Read();
+	  	SUM=DHT11_Read();
 
+	  	Te=Temp_byte1;
+	  	RH=RH_byte1;
+	  	Temperature= (float) Te;
+	  	Humidity=(float) RH;
+	  	printf("ADC = %lu, T = %.1f C, RH = %.2f\r\n", adc_value, temp,Humidity);
 
-
-	  DHT11_Start();
-	  Presence=Check_Response();
-	  RH_byte1=DHT11_Read();
-	  RH_byte2=DHT11_Read();
-	  Temp_byte1=DHT11_Read();
-	  Temp_byte2=DHT11_Read();
-	  SUM=DHT11_Read();
-
-	  Te=Temp_byte1;
-	  RH=RH_byte1;
-	  Temperature= (float) Te;
-	  Humidity=(float) RH;
-
-
-	  		printf("ADC = %lu, T = %.1f C, RH = %.2f\r\n", adc_value, temp,Humidity);
+	  	FlagInterruption = 0;
 	  	}
-	  }
 
     /* USER CODE END WHILE */
 
@@ -428,9 +461,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 7199;
+  htim2.Init.Prescaler = 65535;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 9999;
+  htim2.Init.Period = 730959;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
