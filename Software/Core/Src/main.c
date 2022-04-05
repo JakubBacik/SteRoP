@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include<stdio.h>
+#include<BMP280.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -75,6 +76,8 @@ float Temperature=0;
 float Humidity=0;
 uint8_t Presence=0;
 volatile int FlagInterruption = 0;
+float temp_1, huminidity_1;
+int32_t pressure;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -238,7 +241,9 @@ int main(void)
   HAL_TIM_Base_Start(&htim3);
   HAL_TIM_Base_Start_IT(&htim2);
 
-
+#ifdef BMP280
+  BMP280_Init(&hspi2, BMP280_TEMPERATURE_17BIT, BMP280_ULTRAHIGHRES, BMP280_NORMALMODE);
+#endif
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -262,7 +267,17 @@ int main(void)
 	  	RH=RH_byte1;
 	  	Temperature= (float) Te;
 	  	Humidity=(float) RH;
-	  	printf("ADC = %lu, T = %.1f C, RH = %.2f\r\n", adc_value, temp,Humidity);
+
+
+#ifdef BMP280
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
+	  BMP280_ReadTemperatureAndPressure(&temp_1, &pressure);
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
+#endif
+
+
+
+	  	printf("ADC = %lu, T = %.1f C, RH = %.2f, P= %lu hPa\r\n", adc_value, temp,Humidity,pressure);
 
 	  	FlagInterruption = 0;
 	  	}
