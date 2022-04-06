@@ -15,7 +15,9 @@
 
 #include "math.h"
 
-
+#define BMP280
+#define BMP_I2C 0
+#define BMP_SPI 1
 
 #ifdef BMP180
 #include "delays.h"
