@@ -16,6 +16,7 @@
 //	Settings
 //	Choose sensor
 //
+#define BMP280
 //	#define BMP180
 #ifndef BMP180
 	#define BMP280
