@@ -527,7 +527,7 @@ float BMP280_ReadTemperature(void)
 	  }
   }
 
-  return -99;
+  return -1;
 }
 #endif
 #ifdef BME280

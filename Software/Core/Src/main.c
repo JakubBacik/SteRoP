@@ -34,6 +34,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BMP280
+#define BMP_SPI 1
+#define BMP_I2C 0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -78,7 +80,7 @@ float Humidity=0;
 uint8_t Presence=0;
 volatile int FlagInterruption = 0;
 float temp_1, huminidity_1;
-int32_t pressure;
+int32_t pressure, temperature;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -242,9 +244,9 @@ int main(void)
   HAL_TIM_Base_Start(&htim3);
   HAL_TIM_Base_Start_IT(&htim2);
 
-#ifdef BMP280
-  BMP280_Init(&hspi2, BMP280_TEMPERATURE_17BIT, BMP280_ULTRAHIGHRES, BMP280_NORMALMODE);
-#endif
+
+  BMP280_Init(&hspi2, BMP280_TEMPERATURE_16BIT, BMP280_ULTRAHIGHRES, BMP280_NORMALMODE);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -270,15 +272,15 @@ int main(void)
 	  	Humidity=(float) RH;
 
 
-#ifdef BMP280
-	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 1);
-	  BMP280_ReadTemperatureAndPressure(&temp_1, &pressure);
-	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1, 0);
-#endif
+
+	  	HAL_GPIO_WritePin(SPI2_CSB_GPIO_Port, SPI2_CSB_Pin, 1);
+	    pressure = BMP280_ReadPressure();
+	  	HAL_GPIO_WritePin(SPI2_CSB_GPIO_Port, SPI2_CSB_Pin, 0);
 
 
 
-	  	printf("ADC = %lu, T = %.1f C, RH = %.2f, P= %lu hPa\r\n", adc_value, temp,Humidity,pressure);
+
+	  	printf("!, T = %.1f C, RH = %.0f %, P= %d Pa \r\n", adc_value, temp, Humidity,  pressure);
 
 	  	FlagInterruption = 0;
 	  	}
@@ -441,7 +443,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -477,9 +479,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 65535;
+  htim2.Init.Prescaler = 7199;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 730959;
+  htim2.Init.Period = 9999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -653,7 +655,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_1|DHT11_DATA_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, SPI2_CSB_Pin|DHT11_DATA_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
@@ -664,8 +666,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PC1 DHT11_DATA_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_1|DHT11_DATA_Pin;
+  /*Configure GPIO pins : SPI2_CSB_Pin DHT11_DATA_Pin */
+  GPIO_InitStruct.Pin = SPI2_CSB_Pin|DHT11_DATA_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
