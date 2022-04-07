@@ -277,10 +277,16 @@ int main(void)
 	    pressure = BMP280_ReadPressure();
 	  	HAL_GPIO_WritePin(SPI2_CSB_GPIO_Port, SPI2_CSB_Pin, 0);
 
+	 // 	static uint16_t cnt = 0; // Licznik wyslanych wiadomosci
+	  	 uint8_t data[50];// Tablica przechowujaca wysylana wiadomosc.
+	  	 uint16_t size = 0; // Rozmiar wysylanej wiadomosci ++cnt; // Zwiekszenie licznika wyslanych wiadomosci.
+
+	  	// ++cnt; // Zwiekszenie licznika wyslanych wiadomosci.
+	  	 size = sprintf(data, "!, T = %.1f C, RH = %.0f %, P= %d Pa \r\n", adc_value, temp, Humidity,  pressure); // Stworzenie wiadomosci do wyslania oraz przypisanie ilosci wysylanych znakow do zmiennej size.
+	  	 HAL_UART_Transmit_IT(&huart2, data, size); // Rozpoczecie nadawania danych
 
 
-
-	  	printf("!, T = %.1f C, RH = %.0f %, P= %d Pa \r\n", adc_value, temp, Humidity,  pressure);
+	  //	printf("!, T = %.1f C, RH = %.0f %, P= %d Pa \r\n", adc_value, temp, Humidity,  pressure);
 
 	  	FlagInterruption = 0;
 	  	}
