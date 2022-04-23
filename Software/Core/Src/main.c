@@ -95,7 +95,7 @@ int32_t pressure, temperature;
  *za pomocą UART.*/
 int _write ( int file , char *ptr , int len ) {
 
-	HAL_UART_Transmit(&huart2 , (uint8_t*)ptr , len , 50) ;
+	HAL_UART_Transmit(&huart1 , (uint8_t*)ptr , len , 50) ;
 	return len;
 }
 
@@ -105,8 +105,8 @@ int _write ( int file , char *ptr , int len ) {
  * jest większa niż oczekiwane opóżnienie*/
 void delay_us (uint16_t us)
 {
-	__HAL_TIM_SET_COUNTER(&htim3,0);  // set the counter value a 0
-	while (__HAL_TIM_GET_COUNTER(&htim3) < us);  // wait for the counter to reach the us input in the parameter
+	__HAL_TIM_SET_COUNTER(&htim3,0);
+	while (__HAL_TIM_GET_COUNTER(&htim3) < us);
 }
 
 /* Funkcja odpowiedzialna za ustawienie danego pinu
@@ -139,10 +139,10 @@ void Set_Pin_Input (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
  * odpowiedź czujnika.*/
 void DHT11_Start (void)
 {
-	Set_Pin_Output (DHT_PORT, DHT_PIN);  // set the pin as output
-	HAL_GPIO_WritePin (DHT_PORT, DHT_PIN, 0);   // pull the pin low
-	 delay_us(18000);  // wait for 18ms
-	Set_Pin_Input(DHT_PORT, DHT_PIN);    // set as input
+	Set_Pin_Output (DHT_PORT, DHT_PIN);
+	HAL_GPIO_WritePin (DHT_PORT, DHT_PIN, 0);
+	 delay_us(18000);
+	Set_Pin_Input(DHT_PORT, DHT_PIN);
 }
 
 /* Funkcja odpowiedzialna za sprawdzenie odpowiedzi
@@ -162,7 +162,7 @@ uint8_t Check_Response (void)
 		if ((HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN))) Response = 1;
 		else Response = -1;
 	}
-	while ((HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));   // wait for the pin to go low
+	while ((HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));
 
 	return Response;
 }
@@ -178,14 +178,14 @@ uint8_t DHT11_Read (void)
 	uint8_t i,j;
 	for (j=0;j<8;j++)
 	{
-		while (!(HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));   // wait for the pin to go high
-		delay_us(40);   // wait for 40 us
-		if (!(HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)))   // if the pin is low
+		while (!(HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));
+		delay_us(40);
+		if (!(HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)))
 		{
-			i&= ~(1<<(7-j));   // write 0
+			i&= ~(1<<(7-j));
 		}
-		else i|= (1<<(7-j));  // if the pin is high, write 1
-		while ((HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));  // wait for the pin to go low
+		else i|= (1<<(7-j));
+		while ((HAL_GPIO_ReadPin (DHT_PORT, DHT_PIN)));
 	}
 	return i;
 }
@@ -237,13 +237,11 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
   HAL_ADC_Start(&hadc1);
 
   HAL_TIM_Base_Start(&htim3);
   HAL_TIM_Base_Start_IT(&htim2);
-
 
   BMP280_Init(&hspi2, BMP280_TEMPERATURE_16BIT, BMP280_ULTRAHIGHRES, BMP280_NORMALMODE);
 
@@ -254,39 +252,39 @@ int main(void)
   while (1)
   {
 	  if(FlagInterruption == 1){
+		  //Odczyt temperatury
+		  uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
+		  float temp = adc_value * 330.0f / 4096.0f;
 
-	  	uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
-	  	float temp = adc_value * 330.0f / 4096.0f;
+		  //Odczyt wilgotnosci
+		  DHT11_Start();
+		  Presence=Check_Response();
+		  RH_byte1=DHT11_Read();
+		  RH_byte2=DHT11_Read();
+		  Temp_byte1=DHT11_Read();
+		  Temp_byte2=DHT11_Read();
+		  SUM=DHT11_Read();
 
-	  	DHT11_Start();
-	  	Presence=Check_Response();
-	  	RH_byte1=DHT11_Read();
-	  	RH_byte2=DHT11_Read();
-	  	Temp_byte1=DHT11_Read();
-	  	Temp_byte2=DHT11_Read();
-	  	SUM=DHT11_Read();
-
-	  	Te=Temp_byte1;
-	  	RH=RH_byte1;
-	  	Temperature= (float) Te;
-	  	Humidity=(float) RH;
-
-
-
-	  	HAL_GPIO_WritePin(SPI2_CSB_GPIO_Port, SPI2_CSB_Pin, 1);
-	    pressure = BMP280_ReadPressure();
-	  	HAL_GPIO_WritePin(SPI2_CSB_GPIO_Port, SPI2_CSB_Pin, 0);
-
-	 // 	static uint16_t cnt = 0; // Licznik wyslanych wiadomosci
-	  	 uint8_t data[50];// Tablica przechowujaca wysylana wiadomosc.
-	  	 uint16_t size = 0; // Rozmiar wysylanej wiadomosci ++cnt; // Zwiekszenie licznika wyslanych wiadomosci.
-
-	  	// ++cnt; // Zwiekszenie licznika wyslanych wiadomosci.
-	  	 size = sprintf(data, "!, T = %.1f C, RH = %.0f %, P= %d Pa \r\n", adc_value, temp, Humidity,  pressure); // Stworzenie wiadomosci do wyslania oraz przypisanie ilosci wysylanych znakow do zmiennej size.
-	  	 HAL_UART_Transmit_IT(&huart2, data, size); // Rozpoczecie nadawania danych
+		  Te=Temp_byte1;
+		  RH=RH_byte1;
+		  Temperature = (float) Te;
+		  Humidity =(float) RH;
 
 
-	  //	printf("!, T = %.1f C, RH = %.0f %, P= %d Pa \r\n", adc_value, temp, Humidity,  pressure);
+		  //Odczyt cisnienia
+		  HAL_GPIO_WritePin(SPI2_CSB_GPIO_Port, SPI2_CSB_Pin, 1);
+		  pressure = BMP280_ReadPressure();
+		  HAL_GPIO_WritePin(SPI2_CSB_GPIO_Port, SPI2_CSB_Pin, 0);
+
+		  //Zmania stanu pinu odpowidzalnego za wywolanie przerwania w ESP32
+		  HAL_GPIO_WritePin(USART_InterruptPin_GPIO_Port, USART_InterruptPin_Pin, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(USART_InterruptPin_GPIO_Port, USART_InterruptPin_Pin, GPIO_PIN_RESET);
+		  HAL_Delay(10);
+
+		  //Wyslanie ramki informacji
+		  printf("X %.1f %.0f %d \r\n", adc_value, temp, Humidity,  pressure);
+		  //Informacja o wyslaniu ramki dla uzytkownika
+		  HAL_UART_Transmit(&huart2 , "Wyslanie danych \r \n" , 12, 50) ;
 
 	  	FlagInterruption = 0;
 	  	}
@@ -487,7 +485,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 7199;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 9999;
+  htim2.Init.Period = 99999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -666,6 +664,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(USART_InterruptPin_GPIO_Port, USART_InterruptPin_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
@@ -685,6 +686,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : USART_InterruptPin_Pin */
+  GPIO_InitStruct.Pin = USART_InterruptPin_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(USART_InterruptPin_GPIO_Port, &GPIO_InitStruct);
 
 }
 
