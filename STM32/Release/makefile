@@ -60,8 +60,8 @@ all: main-build
 main-build: WeatherStation.elf secondary-outputs
 
 # Tool invocations
-WeatherStation.elf WeatherStation.map: $(OBJS) $(USER_OBJS) C:\git\SteRoP\Software\STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "WeatherStation.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\git\SteRoP\Software\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="WeatherStation.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+WeatherStation.elf WeatherStation.map: $(OBJS) $(USER_OBJS) C:\Users\tombr\Desktop\W04\6.\ semestr\SR\SteRoP-main\STM32\STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "WeatherStation.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\tombr\Desktop\W04\6. semestr\SR\SteRoP-main\STM32\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="WeatherStation.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include<stdio.h>
 #include<BMP280.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,6 +46,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+
+CRC_HandleTypeDef hcrc;
 
 SPI_HandleTypeDef hspi2;
 
@@ -70,6 +73,7 @@ static void MX_USART1_UART_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_CRC_Init(void);
 /* USER CODE BEGIN PFP */
 
 
@@ -199,6 +203,27 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 }
 
 
+struct senderS
+{
+  uint8_t data[4];
+	uint16_t crc;
+};
+
+
+
+void sendData(struct senderS * data, UART_HandleTypeDef * huart){
+  // UART can only send unsigned int
+  // Thus we need to convert our struct data
+  char buffer[sizeof(data)]; // Create a char buffer of right size
+
+  // Copy the data to buffer
+  memcpy(buffer, &data, sizeof(data)); // Copy and convert the data
+  // Ideally buffer will be 12B long, 4B for each axes data
+  // Now we can finally send this data
+  HAL_UART_Transmit(huart, (uint8_t *)buffer, sizeof(buffer), 50);
+  // The last param is timeout duration in ms
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -236,6 +261,7 @@ int main(void)
   MX_DMA_Init();
   MX_TIM3_Init();
   MX_TIM2_Init();
+  MX_CRC_Init();
   /* USER CODE BEGIN 2 */
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
   HAL_ADC_Start(&hadc1);
@@ -281,10 +307,21 @@ int main(void)
 		  HAL_GPIO_WritePin(USART_InterruptPin_GPIO_Port, USART_InterruptPin_Pin, GPIO_PIN_RESET);
 		  HAL_Delay(10);
 
+
+
+			struct senderS S;
+			S.data[0] = adc_value;
+			S.data[1] = temp;
+			S.data[2]= Humidity;
+			S.data[3]= pressure;
+			S.crc = 0;
+
+			S.crc = HAL_CRC_Accumulate(&hcrc, (uint32_t*)S.data, 4);
+			sendData(&S, &huart2);
 		  //Wyslanie ramki informacji
-		  printf("X %.1f %.0f %d \r\n", adc_value, temp, Humidity,  pressure);
+		//  printf("X %.1f %.0f %d \r\n", adc_value, temp, Humidity,  pressure);
 		  //Informacja o wyslaniu ramki dla uzytkownika
-		  HAL_UART_Transmit(&huart2 , "Wyslanie danych \r \n" , 12, 50) ;
+		 // HAL_UART_Transmit(&huart2 , "Wyslanie danych \r \n" , 12, 50) ;
 
 	  	FlagInterruption = 0;
 	  	}
@@ -421,6 +458,40 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief CRC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CRC_Init(void)
+{
+
+  /* USER CODE BEGIN CRC_Init 0 */
+
+  /* USER CODE END CRC_Init 0 */
+
+  /* USER CODE BEGIN CRC_Init 1 */
+
+  /* USER CODE END CRC_Init 1 */
+  hcrc.Instance = CRC;
+  hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_DISABLE;
+  hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_DISABLE;
+  hcrc.Init.GeneratingPolynomial = 11;
+  hcrc.Init.CRCLength = CRC_POLYLENGTH_16B;
+  hcrc.Init.InitValue = 0;
+  hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
+  hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
+  hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_WORDS;
+  if (HAL_CRC_Init(&hcrc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CRC_Init 2 */
+
+  /* USER CODE END CRC_Init 2 */
 
 }
 
