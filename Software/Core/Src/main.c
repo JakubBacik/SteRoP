@@ -284,7 +284,7 @@ int main(void)
 		  //Wyslanie ramki informacji
 		  printf("X %.1f %.0f %d \r\n", adc_value, temp, Humidity,  pressure);
 		  //Informacja o wyslaniu ramki dla uzytkownika
-		  HAL_UART_Transmit(&huart2 , "Wyslanie danych \r \n" , 12, 50) ;
+		  HAL_UART_Transmit(&huart2 , "Wyslanie danych \r \n" , 22, 50) ;
 
 	  	FlagInterruption = 0;
 	  	}

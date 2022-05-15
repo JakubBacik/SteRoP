@@ -7,16 +7,110 @@
 #include <sqlite3.h>
 #include <SPI.h>
 #include "SPIFFS.h"
-#include <CRC.h>
 #include "SD.h"
+#include <CRC16.h>
 #include "../inc/password.hh"
+
+#define Btn1_GPIO 35
+
+#define RXD2 16
+#define TXD2 17
+CRC16 crc;
 
 WebServer server(80);
 
-volatile int interruptFlag;
+volatile int interruptFlag=0;
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
+
+int dataToDatabase[3] = {0,0,0};
+
+void dataFromSTM(int *dataFromTabel); 
+
+/*
+ * Przerawnie które powoduje wywołanie funkcji odpowiedzialnej za czytanie z UART
+ **/
+void IRAM_ATTR readFromPort(){
+  interruptFlag=1;
+}
+
+/*
+ * Funkcja odpowiedzialna za obliczenie sumy kontrolnej CRC16
+ */ 
+unsigned short MakeFrame(String toCRC16){
+  crc.setPolynome(0x1021);
+  for(unsigned int i=0; i< toCRC16.length()-1; i++){
+    crc.add(toCRC16[i]);
+  }
+
+  unsigned short toReturn = crc.getCRC();
+  crc.restart();
+
+  return toReturn;
+}
+
+/*
+ * Funkcja odpowiedzialna za sprawdzenie poprawności danych
+ * oraz parsowanie ich do tablicy.
+ */
+
+bool CheckData(String str, int* toReturn){
+  
+  if(str[0] != 'X'){
+   return false; 
+  }
+  String wordToAdd = "";
+  String stringToCRC16 ="X ";
+  int number = 0;
+  String toCompareCRC16;
+
+  for(int i=2; i<(int)str.length()+1; i++){
+    if(str[i] != ' ' && str[i] != '\0'){
+      wordToAdd += str[i];
+    }else{
+      if(number < 3){
+        stringToCRC16 +=wordToAdd;
+        stringToCRC16 +=" ";
+
+        toReturn[number] = wordToAdd.toInt();
+        wordToAdd="";
+      }
+      if(number == 3){
+        toCompareCRC16 = wordToAdd.substring(0,4);
+      }
+      number++;
+    }
+  }
+
+  if(number == 4){
+    return true;
+  }else{
+    return false;    
+  }
+
+  unsigned int frame = MakeFrame(stringToCRC16);
+  String anotherOne = String(frame, HEX);
+  anotherOne.toUpperCase();
+
+  if(toCompareCRC16 == anotherOne){
+    return true;
+  }else{
+    return false; 
+     
+  }
+}
+  
+/*
+ * Funkcja odpowiedzialana za czytanie danych z UARTu.
+ */
+void readFromUart(int* dataTab){
+  String dataFromUart = Serial2.readString();
+  if(CheckData(dataFromUart, dataTab)){
+    dataFromSTM(dataTab);
+  }
+}
+
 
 /* Funkcja odpowiedzialna za pobranie z SPIFFS pliku .html 
  * strony głównej
@@ -101,7 +195,7 @@ int openDb(const char *filename) {
  * z wygenerowanych losowo danych. Dodatkowo pobiera aktualną date za
  * pomocą bilbioteki NTPClient.
  **/
-void dataFromSTM() 
+void dataFromSTM(int *dataFromTabel) 
 {
   String db_name = "/sd/DataBase.db";
   String sql = "INSERT INTO WeatherStation (Pressure, Humidity, Temperature, Data, Time) VALUES (?, ?, ?, ?, ?)";
@@ -122,9 +216,9 @@ void dataFromSTM()
   String dayStamp = formattedDate.substring(0, splitT);
   String timeStamp = formattedDate.substring(splitT+1, formattedDate.length()-4);
 
-  sqlite3_bind_int(res, 1, random(1000,1500));
-  sqlite3_bind_int(res, 2, random(50, 100));
-  sqlite3_bind_int(res, 3, random(10, 30));
+  sqlite3_bind_int(res, 1, dataFromTabel[2]);
+  sqlite3_bind_int(res, 2, dataFromTabel[1]);
+  sqlite3_bind_int(res, 3, dataFromTabel[0]);
   sqlite3_bind_text(res, 4, dayStamp.c_str(), strlen(dayStamp.c_str()), SQLITE_STATIC);
   sqlite3_bind_text(res, 5, timeStamp.c_str(), strlen(timeStamp.c_str()), SQLITE_STATIC);
 
@@ -245,18 +339,12 @@ void handleCurrentData(){
   server.send (200, "text/html", resp);
 }
 
-
-hw_timer_t * timer = NULL;
-
-//Callback timera który genreuje przerwanie co 1 minute, rozwiązanie tymczasowe.
-void IRAM_ATTR onTimer() {
-  interruptFlag=1;
- 
-}
-
 void setup()
 {
   Serial.begin(115200);
+  pinMode(Btn1_GPIO, INPUT_PULLUP);
+  attachInterrupt(Btn1_GPIO, readFromPort, FALLING);
+  Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
   SPIFFS.begin();
   //Połączenie z WIFI
   WiFi.begin(ssid, password);
@@ -294,12 +382,7 @@ void setup()
   server.uri();
   server.begin(); 
   Serial.println ( "HTTP server started" );
-
-  timer = timerBegin(0, 8000, true);
-  timerAttachInterrupt(timer, &onTimer, true);
-  timerAlarmWrite(timer, 600000, true);
-  timerAlarmEnable(timer);
-
+  
   timeClient.begin();
   timeClient.setTimeOffset(7200);
 
@@ -309,7 +392,7 @@ void loop()
 {
   server.handleClient();
   if(interruptFlag == 1){
-    dataFromSTM();
+    readFromUart(dataToDatabase);
     interruptFlag = 0;
   } 
 }
