@@ -46,8 +46,8 @@ WeatherStation.bin \
 all: WeatherStation.elf secondary-outputs
 
 # Tool invocations
-WeatherStation.elf: $(OBJS) $(USER_OBJS) C:\Users\jakub\OneDrive\Desktop\Studia\Studia_6_sem_3_rok\SR\Projekt\SteRoP\Software\STM32L476RGTX_FLASH.ld
-	arm-none-eabi-gcc -o "WeatherStation.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\jakub\OneDrive\Desktop\Studia\Studia_6_sem_3_rok\SR\Projekt\SteRoP\Software\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="WeatherStation.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
+WeatherStation.elf: $(OBJS) $(USER_OBJS) C:\Users\jakub\OneDrive\Desktop\Studia\Studia_6_sem_3_rok\SR\Projekt\SteRoP\STM32\STM32L476RGTX_FLASH.ld
+	arm-none-eabi-gcc -o "WeatherStation.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\jakub\OneDrive\Desktop\Studia\Studia_6_sem_3_rok\SR\Projekt\SteRoP\STM32\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="WeatherStation.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -u _scanf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

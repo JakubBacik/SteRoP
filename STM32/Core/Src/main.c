@@ -46,6 +46,8 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
+CRC_HandleTypeDef hcrc;
+
 SPI_HandleTypeDef hspi2;
 
 TIM_HandleTypeDef htim2;
@@ -70,6 +72,7 @@ static void MX_USART1_UART_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_CRC_Init(void);
 /* USER CODE BEGIN PFP */
 
 
@@ -236,6 +239,7 @@ int main(void)
   MX_DMA_Init();
   MX_TIM3_Init();
   MX_TIM2_Init();
+  MX_CRC_Init();
   /* USER CODE BEGIN 2 */
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
   HAL_ADC_Start(&hadc1);
@@ -252,11 +256,13 @@ int main(void)
   while (1)
   {
 	  if(FlagInterruption == 1){
+		  char toPrint[20];
+		  uint16_t crc;
 		  //Odczyt temperatury
 		  uint32_t adc_value = HAL_ADC_GetValue(&hadc1);
 		  float temp = adc_value * 330.0f / 4096.0f;
 
-		  //Odczyt wilgotnosci
+		  //Odczyt wilgotności
 		  DHT11_Start();
 		  Presence=Check_Response();
 		  RH_byte1=DHT11_Read();
@@ -271,22 +277,29 @@ int main(void)
 		  Humidity =(float) RH;
 
 
-		  //Odczyt cisnienia
+		  //Odczyt ciśnienia
 		  HAL_GPIO_WritePin(SPI2_CSB_GPIO_Port, SPI2_CSB_Pin, 1);
 		  pressure = BMP280_ReadPressure();
 		  HAL_GPIO_WritePin(SPI2_CSB_GPIO_Port, SPI2_CSB_Pin, 0);
 
-		  //Zmania stanu pinu odpowidzalnego za wywolanie przerwania w ESP32
+		  //Utworzenie napisu z zebranych danych oraz stworzenie sumy kontrolnej
+		  sprintf(toPrint, "X %.0f %.0f %d ", temp, Humidity,  pressure);
+		  printf(toPrint);
+		  crc = HAL_CRC_Calculate(&hcrc, (uint32_t*)toPrint, strlen(toPrint));
+
+		  //Zmania stanu pinu odpowidzalnego za wywołanie przerwania w ESP32
 		  HAL_GPIO_WritePin(USART_InterruptPin_GPIO_Port, USART_InterruptPin_Pin, GPIO_PIN_SET);
 		  HAL_GPIO_WritePin(USART_InterruptPin_GPIO_Port, USART_InterruptPin_Pin, GPIO_PIN_RESET);
 		  HAL_Delay(10);
 
-		  //Wyslanie ramki informacji
-		  printf("X %.1f %.0f %d \r\n", adc_value, temp, Humidity,  pressure);
-		  //Informacja o wyslaniu ramki dla uzytkownika
-		  HAL_UART_Transmit(&huart2 , "Wyslanie danych \r \n" , 22, 50) ;
+		  //Wysłanie ramki informacji
+		  printf("%X\n", crc);
+		  //Informacja o wysłaniu ramki dla użytkownika
+		  HAL_UART_Transmit(&huart2 , "Wyslanie danych \r \n" , strlen("Wyslanie danych \r \n"), 50) ;
+		  HAL_UART_Transmit(&huart2 , toPrint , strlen(toPrint), 50) ;
+		  HAL_UART_Transmit(&huart2 , "\r \n" , strlen("\r \n"), 50) ;
 
-	  	FlagInterruption = 0;
+		  FlagInterruption = 0;
 	  	}
 
     /* USER CODE END WHILE */
@@ -425,6 +438,40 @@ static void MX_ADC1_Init(void)
 }
 
 /**
+  * @brief CRC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CRC_Init(void)
+{
+
+  /* USER CODE BEGIN CRC_Init 0 */
+
+  /* USER CODE END CRC_Init 0 */
+
+  /* USER CODE BEGIN CRC_Init 1 */
+
+  /* USER CODE END CRC_Init 1 */
+  hcrc.Instance = CRC;
+  hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_DISABLE;
+  hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_DISABLE;
+  hcrc.Init.GeneratingPolynomial = 4129;
+  hcrc.Init.CRCLength = CRC_POLYLENGTH_16B;
+  hcrc.Init.InitValue = 0;
+  hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
+  hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
+  hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_BYTES;
+  if (HAL_CRC_Init(&hcrc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CRC_Init 2 */
+
+  /* USER CODE END CRC_Init 2 */
+
+}
+
+/**
   * @brief SPI2 Initialization Function
   * @param None
   * @retval None
@@ -483,9 +530,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 7199;
+  htim2.Init.Prescaler = 65000;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 99999;
+  htim2.Init.Period = 738462;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)

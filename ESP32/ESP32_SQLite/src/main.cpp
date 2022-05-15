@@ -66,7 +66,7 @@ bool CheckData(String str, int* toReturn){
   String toCompareCRC16;
 
   for(int i=2; i<(int)str.length()+1; i++){
-    if(str[i] != ' ' && str[i] != '\0'){
+    if(str[i] != ' ' && str[i] != '\n'){
       wordToAdd += str[i];
     }else{
       if(number < 3){
@@ -83,12 +83,11 @@ bool CheckData(String str, int* toReturn){
     }
   }
 
-  if(number == 4){
-    return true;
-  }else{
+  if(number != 4){
     return false;    
   }
 
+  stringToCRC16 += " ";
   unsigned int frame = MakeFrame(stringToCRC16);
   String anotherOne = String(frame, HEX);
   anotherOne.toUpperCase();
@@ -100,7 +99,6 @@ bool CheckData(String str, int* toReturn){
      
   }
 }
-  
 /*
  * Funkcja odpowiedzialana za czytanie danych z UARTu.
  */
@@ -216,13 +214,13 @@ void dataFromSTM(int *dataFromTabel)
   String dayStamp = formattedDate.substring(0, splitT);
   String timeStamp = formattedDate.substring(splitT+1, formattedDate.length()-4);
 
-  sqlite3_bind_int(res, 1, dataFromTabel[2]);
+  sqlite3_bind_int(res, 1, dataFromTabel[2]/100);
   sqlite3_bind_int(res, 2, dataFromTabel[1]);
   sqlite3_bind_int(res, 3, dataFromTabel[0]);
   sqlite3_bind_text(res, 4, dayStamp.c_str(), strlen(dayStamp.c_str()), SQLITE_STATIC);
   sqlite3_bind_text(res, 5, timeStamp.c_str(), strlen(timeStamp.c_str()), SQLITE_STATIC);
 
-  Serial.println("Dodano rekord");
+  Serial.println("New record");
 
   if (sqlite3_step(res) != SQLITE_DONE) {
     Serial.printf("ERROR executing stmt: %s\n", sqlite3_errmsg(db1));

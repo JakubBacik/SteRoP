@@ -1,6 +1,6 @@
 Configuration	WeatherStation
 STM32CubeMX 	6.0.0
-Date	04/23/2022
+Date	05/15/2022
 MCU	STM32L476RGTx
 
 
@@ -92,7 +92,7 @@ SOFTWARE PROJECT
 
 Project Settings : 
 Project Name : WeatherStation
-Project Folder : C:\Users\jakub\OneDrive\Desktop\Studia\Studia_6_sem_3_rok\SR\Projekt\SteRoP\Software
+Project Folder : C:\Users\jakub\OneDrive\Desktop\Studia\Studia_6_sem_3_rok\SR\Projekt\SteRoP\STM32
 Toolchain / IDE : STM32CubeIDE
 Firmware Package Name and Version : STM32Cube FW_L4 V1.16.0
 

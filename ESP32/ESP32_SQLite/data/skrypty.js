@@ -1,3 +1,5 @@
+/*Funkcja odpowiedzialna za wyswietlanie wykresu
+ * w zakłace Plot, pobieranie danych oraz jego aktualizacje*/ 
 $( document ).ready(function() {
   var temperature = [];
   var pressure = [];
@@ -147,11 +149,14 @@ $( document ).ready(function() {
     }
   }
   req2.send(null);   
-  }, 60000);
+  }, 600000);
   req.send(null);              
 }); 
 
-
+/*
+ * Funkcja odpowiedzialna za dodanie elementow z 
+ * bazy danych do tabeli znadjdujacej sie w zakladce database 
+ */
 function showDataBase()
 {
   var req = new XMLHttpRequest();
@@ -178,7 +183,9 @@ function showDataBase()
   req.send(null); 
 };
 
-
+/* Funkcja odpowiedzialna za wyswietlenie aktualnych danych 
+ * w głównej zakładce
+ **/
 function showData(){
   var req2 = new XMLHttpRequest();
   req2.open('GET', "/currentdates", false);
@@ -195,6 +202,9 @@ function showData(){
   
 };
 
+/* Funckja odpowiedzialna za pobranie najnowszego rekordu
+ * i dodanie go do tabeli w zakladce DataBase
+ **/
 function getCurrentData(){
   var req2 = new XMLHttpRequest();
   req2.open('GET', "/currentdates", false);
